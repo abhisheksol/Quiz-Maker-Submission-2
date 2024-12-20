@@ -1,15 +1,13 @@
-import React from 'react';
+import React, { FC } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from "../../context/AuthContext";
 import { Navigate } from "react-router-dom";
 
-const UserDashboard = () => {
-  const userId = "123"; // Replace with dynamic user ID if available
+const UserDashboard: FC = () => {
+  const userId: string = "123"; // Replace with dynamic user ID if available
   const { isAuthenticated, user, logout } = useAuth();
-//  console.log("this is ",isAuthenticated);
 
   if (!isAuthenticated) {
-    // Redirect to home if not logged in
     return <Navigate to="/" replace />;
   }
  
@@ -37,14 +35,15 @@ const UserDashboard = () => {
           </Link>
 
           <Link
-            to="/user/profile"
+            to="/leaderboard"
             className="block p-6 bg-yellow-500 text-white font-medium text-lg rounded-lg shadow-md hover:bg-yellow-600 transition"
           >
-            Manage Profile
+            Leaderboard
           </Link>
 
           <Link
-            to="/logout"
+            to="/"
+            onClick={logout}
             className="block p-6 bg-red-500 text-white font-medium text-lg rounded-lg shadow-md hover:bg-red-600 transition"
           >
             Logout

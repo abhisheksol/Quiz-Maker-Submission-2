@@ -5,7 +5,7 @@ import QuizTaker from './pages/User/QuizTaker';
 // import Button from './component/button';
 import QuizCreator from './pages/Admin/QuizCreator';
 import { BrowserRouter as Router, Route, Link, Routes } from "react-router-dom";
-import Home from './home';
+import Home from './Home';
 import Login from './pages/Login';
 import QuizList from './pages/User/Quiz_List';
 import UserQuizResult from './pages/User/UserQuizResult';
@@ -17,16 +17,17 @@ import AdminDashboard from './pages/Admin/AdminDashboard';
 import { AuthProvider } from "./context/AuthContext";
 import { useAuth } from "./context/AuthContext";
 import Leaderboard from './pages/Leaderboard';
+import EditQuiz from './pages/Admin/Edit';
 
 const App: React.FC = () => {
   console.log();
-
+  
   return (
     <AuthProvider>
       <Router>
         <div>
           <header>
-            <Nav  />
+            <Nav />
           </header>
           <main>
             <Routes>
@@ -42,6 +43,7 @@ const App: React.FC = () => {
               <Route path="/admin/quizzes" element={<Quiz_Mange />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
+              <Route path="/admin/edit/:id" element={<EditQuiz />} />
             </Routes>
           </main>
         </div>

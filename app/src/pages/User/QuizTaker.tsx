@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { useParams, Navigate } from "react-router-dom";
+import { useParams, useLocation, Navigate, useNavigate } from "react-router-dom";
+import axios from "axios";
 import { RiAiGenerate } from "react-icons/ri";
 import { useAuth } from "../../context/AuthContext";
 
@@ -28,119 +29,148 @@ const QuizTakerPage: React.FC = () => {
   const [score, setScore] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [explanations, setExplanations] = useState<Record<string, string>>({});
-  const [timeLeft, setTimeLeft] = useState<number | null>(300); // Set timer to 5 minutes by default
+  const [timeLeft, setTimeLeft] = useState<number | null>(null); // Timer state
   const { id } = useParams<{ id: string }>();
   const { user, isAuthenticated } = useAuth();
-
-  // Sample Quiz Data
-  const sampleQuiz: Quiz = {
-    title: "History GK Test",
-    description: "History GK Test created by a@gmail.com",
-    questions: [
-      {
-        question_id: "56",
-        question_text: "When was the 'Battle of Tukaroi' fought?",
-        type: "multiple-choice",
-        correct_answer: "1575",
-        options: [
-          { option_text: "1532", is_correct: false },
-          { option_text: "232", is_correct: false },
-          { option_text: "1575", is_correct: true },
-          { option_text: "1579", is_correct: false }
-        ]
-      },
-      {
-        question_id: "58",
-        question_text: "Lion is king of the jungle",
-        type: "true-false",
-        correct_answer: "True",
-        options: [
-          { option_text: "", is_correct: false },
-          { option_text: "", is_correct: false },
-          { option_text: "", is_correct: false },
-          { option_text: "", is_correct: false }
-        ]
-      },
-      {
-        question_id: "59",
-        question_text: "There _____ a cat",
-        type: "fill-in-the-blank",
-        correct_answer: "was",
-        options: [
-          { option_text: "", is_correct: false },
-          { option_text: "", is_correct: false },
-          { option_text: "", is_correct: false },
-          { option_text: "", is_correct: false }
-        ]
-      },
-      {
-        question_id: "57",
-        question_text: "Which of the movies released in 2022?",
-        type: "multiple-select",
-        correct_answer: "",
-        options: [
-          { option_text: "ff", is_correct: true },
-          { option_text: "ss", is_correct: false },
-          { option_text: "ee", is_correct: false },
-          { option_text: "ww", is_correct: true }
-        ]
-      }
-    ]
-  };
-
+  const location = useLocation();
+  const { timer } = location.state || {}; // Timer duration from route state
+  const navigate = useNavigate(); // Use the hook for navigation
+ 
   useEffect(() => {
-    // Use the sample data instead of fetching from the backend
-    setQuiz(sampleQuiz);
-  }, []);
+    axios
+      .get<Quiz>(`http://localhost:5000/api/quizzes/${id}`)
+      .then((response) => {
+        const formattedQuiz = formatQuizData(response.data);
+        setQuiz(formattedQuiz);
+        const  l=formattedQuiz.questions.length
+        setTimeLeft(timer || 300); // Set timer (default: 5 minutes)
+      })
+      .catch(() => {
+        setError("Failed to fetch quiz data.");
+      });
+  }, [id, timer]);
+
+  // Timer logic
+  useEffect(() => {
+    if (timeLeft === 0) {
+      handleSubmit(); // Automatically submit when time is up
+      
+      // Use a timeout to ensure the score is processed properly before navigation
+      setTimeout(() => {
+        alert(`Oops! Time is up. Redirecting to results.`);
+        navigate("/user/1/results");
+      }, 100); // Small delay to avoid race condition
+    }
+  
+    const interval = setInterval(() => {
+      setTimeLeft((prevTime) => (prevTime! > 0 ? prevTime! - 1 : 0));
+    }, 1000);
+  
+    return () => clearInterval(interval); // Cleanup on unmount
+  }, [timeLeft, navigate]);
+  
 
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
   }
 
+  const formatQuizData = (data: Quiz): Quiz => {
+    return {
+      title: data.title,
+      description: data.description,
+      questions: data.questions,
+    };
+  };
+
   const handleAnswerChange = (questionId: string, value: string) => {
     setAnswers((prevAnswers) => {
       const currentAnswers = prevAnswers[questionId] || [];
       if (currentAnswers.includes(value)) {
+        // Deselect if already selected
         return { ...prevAnswers, [questionId]: currentAnswers.filter(val => val !== value) };
       } else {
+        // Select the value
         return { ...prevAnswers, [questionId]: [...currentAnswers, value] };
       }
     });
   };
 
   const handleAiExplanation = async (questionId: string, questionText: string) => {
-    // Simulate AI explanation for demonstration purposes
-    const explanation = `This is a sample explanation for the question: "${questionText}".`;
-    setExplanations((prevExplanations) => ({
-      ...prevExplanations,
-      [questionId]: explanation
-    }));
+    console.log("loading....");
+
+    try {
+      const response = await axios({
+        url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=AIzaSyAfAoMqKsgh2VPXR7tV3xF2zze4pDd-KB8",
+        method: "post",
+        data: {
+          contents: [
+            {
+              parts: [
+                {
+                  text: `Explain this question: "${questionText}" in 2 lines.`,
+                },
+              ],
+            },
+          ],
+        },
+      });
+
+      const explanation =
+        response.data?.candidates[0]?.content.parts[0]?.text || "Explanation not available.";
+
+      setExplanations((prevExplanations) => ({
+        ...prevExplanations,
+        [questionId]: explanation,
+      }));
+    } catch (error) {
+      console.error("Error fetching AI explanation:", error);
+    }
   };
 
   const handleSubmit = () => {
     let calculatedScore = 0;
-
+  
     quiz!.questions.forEach((question) => {
-      const userAnswer = answers[question.question_id];
-
+      // Use a fallback for unanswered questions
+      const userAnswer = answers[question.question_id] || []; // Default to an empty array if not answered
+  
       if (question.type === "multiple-select") {
-        if (userAnswer && Array.isArray(userAnswer)) {
-          const correctAnswers = question.options.filter(option => option.is_correct).map(option => option.option_text.trim());
-          const selectedAnswers = userAnswer.map(ans => ans.trim());
-
-          const isCorrect = correctAnswers.length === selectedAnswers.length && correctAnswers.every(answer => selectedAnswers.includes(answer));
-
+        if (Array.isArray(userAnswer) && userAnswer.length > 0) {
+          const correctAnswers = question.options
+            .filter((option) => option.is_correct)
+            .map((option) => option.option_text.trim());
+          const selectedAnswers = userAnswer.map((ans) => ans.trim());
+  
+          const isCorrect =
+            correctAnswers.length === selectedAnswers.length &&
+            correctAnswers.every((answer) => selectedAnswers.includes(answer));
+  
           if (isCorrect) calculatedScore += 1;
         }
-      }
-
-      if (userAnswer[userAnswer.length - 1] === question.correct_answer) {
+      } else if (userAnswer.length > 0 && userAnswer[0] === question.correct_answer) {
         calculatedScore += 1;
       }
     });
-
+  
     setScore(calculatedScore);
+  
+    const submissionData = {
+      userId: user?.id,
+      quizId: parseInt(id!, 10),
+      score: calculatedScore,
+      totalQuestions: quiz!.questions.length,
+    };
+  
+    axios
+      .post("http://localhost:5000/api/quizzes/submit", submissionData)
+      .then((response) => {
+        console.log("Score submitted successfully:", response.data);
+      })
+      .catch((err) => {
+        console.error("Error submitting score:", err);
+      });
   };
+  
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -164,7 +194,10 @@ const QuizTakerPage: React.FC = () => {
 
       <div className="space-y-6 text-black">
         {quiz.questions.map((question) => (
-          <div key={question.question_id} className="bg-slate-100 p-4 border border-gray-200 rounded-lg shadow-md relative">
+          <div
+            key={question.question_id}
+            className="bg-slate-100 p-4 border border-gray-200 rounded-lg shadow-md relative"
+          >
             {/* AI Button with Tooltip */}
             <div className="absolute top-4 right-4 group">
               <button
@@ -285,3 +318,4 @@ const QuizTakerPage: React.FC = () => {
 };
 
 export default QuizTakerPage;
+

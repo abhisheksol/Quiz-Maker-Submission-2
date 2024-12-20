@@ -1,6 +1,8 @@
 import React from 'react'
 
-function QuizList() {
+type Props = {}
+
+function QuizList({}: Props) {
   return (
     <div>QuizList</div>
   )

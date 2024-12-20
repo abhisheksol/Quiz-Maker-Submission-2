@@ -1,34 +1,37 @@
-import React, { useState, ChangeEvent, FormEvent } from "react";
+import axios from "axios";
+import React, { useState, FC, ChangeEvent, FormEvent } from "react";
 
 interface FormData {
   name: string;
   email: string;
   password: string;
   confirmPassword: string;
+  role: string;
 }
 
-const Registration: React.FC = () => {
+const Registration: FC = () => {
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
+    role: "",
   });
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>): void => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
 
   const validateForm = (): string | null => {
-    const { name, email, password, confirmPassword } = formData;
+    const { name, email, password, confirmPassword, role } = formData;
 
-    if (!name || !email || !password || !confirmPassword) {
+    if (!name || !email || !password || !confirmPassword || !role) {
       return "All fields are required.";
     }
-    const emailRegex: RegExp = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return "Please enter a valid email address.";
     }
@@ -41,10 +44,24 @@ const Registration: React.FC = () => {
     return null;
   };
 
+  const sendRegisterData = async (): Promise<void> => {
+    try {
+      const response = await axios.post("http://localhost:5000/api/users/register", formData);
+      setSuccess("Registration successful!");
+      setError("");
+      console.log("Response from API:", response.data);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || "An error occurred during registration.";
+      setError(errorMessage);
+      setSuccess("");
+      console.error("Error during registration:", errorMessage);
+    }
+  };
+
   const handleSubmit = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
 
-    const validationError: string | null = validateForm();
+    const validationError = validateForm();
     if (validationError) {
       setError(validationError);
       setSuccess("");
@@ -52,14 +69,17 @@ const Registration: React.FC = () => {
     }
 
     setError("");
-    setSuccess("Registration successful!");
-    console.log("Registered Data:", formData);
+    setSuccess("");
+    console.log("Form data to submit:", formData);
+
+    sendRegisterData();
 
     setFormData({
       name: "",
       email: "",
       password: "",
       confirmPassword: "",
+      role: "",
     });
   };
 
@@ -115,6 +135,19 @@ const Registration: React.FC = () => {
             placeholder="Confirm your password"
           />
         </div>
+        <div>
+          <label className="block font-medium mb-2">Role</label>
+          <select
+            name="role"
+            value={formData.role}
+            onChange={handleChange}
+            className="w-full p-2 border border-gray-300 rounded-lg"
+          >
+            <option value="">--Select Role--</option>
+            <option value="admin">Admin</option>
+            <option value="user">User</option>
+          </select>
+        </div>
         <button
           type="submit"
           className="w-full bg-blue-500 text-white p-3 rounded-lg hover:bg-blue-700"
@@ -127,3 +160,4 @@ const Registration: React.FC = () => {
 };
 
 export default Registration;
+

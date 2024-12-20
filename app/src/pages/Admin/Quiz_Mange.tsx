@@ -1,51 +1,70 @@
-import React, { useState, FC } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { Navigate } from 'react-router-dom';
+import React, { useState, useEffect, FC } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { Navigate, useNavigate } from "react-router-dom";
 
 interface Quiz {
-    id: number;
-    title: string;
-    description: string;
-    questionsCount: number;
+  id: number;
+  title: string;
+  description: string;
+  questions_count: number;
+  created_by: string;  // Add this property
 }
 
-const mockQuizzes: Quiz[] = [
-    {
-        id: 1,
-        title: 'JavaScript Basics',
-        description: 'A quiz about JavaScript fundamentals.',
-        questionsCount: 10,
-    },
-    {
-        id: 2,
-        title: 'React Overview',
-        description: 'Test your React knowledge.',
-        questionsCount: 8,
-    },
-    {
-        id: 3,
-        title: 'Node.js Essentials',
-        description: 'A quiz on Node.js basics.',
-        questionsCount: 12,
-    },
-];
-
 const ManageQuizzes: FC = () => {
-    const [quizzes, setQuizzes] = useState<Quiz[]>(mockQuizzes);
-    const { isAuthenticated } = useAuth();
+    const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+    const { isAuthenticated, user, logout } = useAuth();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+      const fetchQuizzes = async (): Promise<void> => {
+          try {
+              const response = await fetch("http://localhost:5000/api/quizzes");
+              const data: Quiz[] = await response.json();
+              
+              console.warn(data);
+              if (user) { // Ensure user is not null
+                  const filteredQuizzes = data.filter(
+                      (quiz) => quiz.created_by === user.name
+                  );
+                  setQuizzes(filteredQuizzes);
+              } else {
+                  console.error("User is not authenticated.");
+              }
+          } catch (error) {
+              console.error("Error fetching quizzes:", error);
+          }
+      };
+  
+      if (isAuthenticated) {
+          fetchQuizzes();
+      }
+  }, [isAuthenticated, user]);
+  
 
     if (!isAuthenticated) {
         return <Navigate to="/" replace />;
     }
 
-    const handleDelete = (id: number): void => {
-        const updatedQuizzes = quizzes.filter((quiz) => quiz.id !== id);
-        setQuizzes(updatedQuizzes);
-        console.log(`Quiz with ID ${id} deleted`);
+    const handleDelete = async (id: number): Promise<void> => {
+        try {
+            const response = await fetch(`http://localhost:5000/api/quizzes/${id}`, {
+                method: "DELETE",
+            });
+
+            if (response.ok) {
+                const updatedQuizzes = quizzes.filter((quiz) => quiz.id !== id);
+                setQuizzes(updatedQuizzes);
+                console.log(`Quiz with ID ${id} deleted`);
+            } else {
+                console.error("Failed to delete the quiz");
+            }
+        } catch (error) {
+            console.error("Error deleting quiz:", error);
+        }
     };
 
     const handleEdit = (id: number): void => {
-        console.log(`Editing quiz with ID ${id}`);
+        navigate(`/admin/edit/${id}`);
     };
 
     return (
@@ -69,7 +88,7 @@ const ManageQuizzes: FC = () => {
                                 <td className="border border-gray-300 p-2">{quiz.title}</td>
                                 <td className="border border-gray-300 p-2">{quiz.description}</td>
                                 <td className="border border-gray-300 p-2 text-center">
-                                    {quiz.questionsCount}
+                                    {quiz.questions_count}
                                 </td>
                                 <td className="border border-gray-300 p-2 text-center">
                                     <button

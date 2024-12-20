@@ -50,7 +50,7 @@ const AdminCreateQuiz: React.FC = () => {
   const handleAiExplanation = async (questionText: string) => {
     try {
       const response = await axios({
-        url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=AIzaSyCVPgDqL2UWciZUqdl_GyE6cSjsc3CNjiA",
+        url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=AIzaSyAfAoMqKsgh2VPXR7tV3xF2zze4pDd-KB8",
         method: "post",
         data: {
           contents: [
@@ -86,13 +86,13 @@ const AdminCreateQuiz: React.FC = () => {
   ) => {
     const { name, value } = e.target;
     const updatedQuestions = [...quizData.questions];
-
+  
     if (name === 'options') {
       // Update options field
       updatedQuestions[index].options = value.split(',').map(option => option.trim());
     } else if (name === 'questionText' || name === 'type' || name === 'correctAnswer') {
       updatedQuestions[index][name as 'questionText' | 'type' | 'correctAnswer'] = value;
-
+  
       // Update liveQuestionText for AI explanation
       if (name === 'questionText') {
         setLiveQuestionText((prev) => ({
@@ -101,7 +101,7 @@ const AdminCreateQuiz: React.FC = () => {
         }));
       }
     }
-
+  
     setQuizData({ ...quizData, questions: updatedQuestions });
   };
 
@@ -134,6 +134,7 @@ const AdminCreateQuiz: React.FC = () => {
   };
 
   const addQuestion = () => {
+    setExplanation('')
     setQuizData({
       ...quizData,
       questions: [
@@ -152,7 +153,7 @@ const AdminCreateQuiz: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const payload = {
-      adminId: user,
+      adminId: user?.id,
       title: quizData.title,
       description: quizData.description,
       startDate: quizData.startDate,
@@ -168,9 +169,18 @@ const AdminCreateQuiz: React.FC = () => {
         })),
       })),
     };
-    console.warn(payload);
 
-
+    try {
+      const response = await axios.post(
+        "http://localhost:5000/api/quizzes/create-with-questions",
+        payload
+      );
+      setSuccessMessage("Quiz created successfully!");
+      console.log(response.data);
+      console.warn("payload", payload);
+    } catch (error) {
+      console.error("Error creating quiz:", error);
+    }
   };
 
   return (

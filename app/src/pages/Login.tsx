@@ -1,8 +1,9 @@
-import React, { FC, useState, FormEvent } from "react";
+import React, { useState, FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
-const Login: FC = () => {
+const Login: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -11,36 +12,58 @@ const Login: FC = () => {
   const [role, setRole] = useState<string>(""); // Role state (admin/user)
   const [error, setError] = useState<string>("");
 
-  const handleLogin = (e: FormEvent<HTMLFormElement>): void => {
+  const handleLogin = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
-
+  
     // Validate input fields
     if (!email || !password || !role) {
       setError("All fields are required.");
       return;
     }
+  
     if (!/\S+@\S+\.\S+/.test(email)) {
       setError("Please enter a valid email address.");
       return;
     }
-
-    // Mock user data (Replace with API call)
-    const userData = {
-      email,
-      name: "John Doe",
-      role, // Admin or User based on selection
-    };
-
-    login(userData); // Update context
-    console.log(userData);
-    
-    // navigate("/"); // Redirect to Home or Dashboard
-    if (userData.role === "admin") {
-      navigate("/admin/dashboard");
-    } else {
-      navigate("/user/dashboard");
+  
+    try {
+      // Make API call
+      const response = await axios.post("http://localhost:5000/api/users/login", {
+        email,
+        password,
+        role,
+      });
+  
+      // Extract user data from the response
+      const userData = response.data.user;
+  
+      // Update context
+      login(userData);
+  
+      // Navigate to the appropriate dashboard
+      if (userData.role === "admin") {
+        navigate("/admin/dashboard");
+      } else {
+        navigate("/user/dashboard");
+      }
+  
+    } catch (error: any) {
+      // Handle errors
+      if (axios.isAxiosError(error)) {
+        // For Axios-specific errors
+        if (error.response?.data?.message) {
+          setError(error.response.data.message); // Use server's error message
+        } else {
+          setError("login is failed due to the wrong credentials");
+          alert("login is failed due to the wrong credentials")
+        }
+      } else {
+        // For other errors (e.g., network issues)
+        setError("An error occurred. Check your connection and try again.");
+      }
     }
   };
+  
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
